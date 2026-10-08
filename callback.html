@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- 1. Seguridad: Evita que el 'code' se filtre en la cabecera Referer hacia terceros -->
+    <meta name="referrer" content="no-referrer">
+    <!-- 2. Seguridad: CSP estricta, bloquea cualquier script externo o exfiltración -->
+    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline';">
+    <title>AdelaSocial IA V2 — Vinculación TikTok</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: #0b0f19;
+            color: #f3f4f6;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .card {
+            background-color: #111827;
+            border: 1px solid #1f2937;
+            border-radius: 16px;
+            max-width: 480px;
+            width: 100%;
+            padding: 32px;
+            text-align: center;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5);
+        }
+        .icon {
+            font-size: 40px;
+            margin-bottom: 16px;
+            display: inline-block;
+        }
+        h1 { font-size: 20px; font-weight: 700; margin-bottom: 12px; color: #ffffff; }
+        p { font-size: 14px; color: #9ca3af; line-height: 1.5; margin-bottom: 24px; }
+        .spinner {
+            border: 3px solid rgba(255, 255, 255, 0.1);
+            border-top: 3px solid #6366f1;
+            border-radius: 50%;
+            width: 32px;
+            height: 32px;
+            animation: spin 0.8s linear infinite;
+            margin: 0 auto 20px auto;
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        .btn {
+            display: inline-block;
+            background-color: #4f46e5;
+            color: #ffffff;
+            font-size: 14px;
+            font-weight: 600;
+            text-decoration: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            transition: background 0.2s;
+            cursor: pointer;
+            border: none;
+        }
+        .btn:hover { background-color: #4338ca; }
+        .error-box {
+            background-color: #450a0a;
+            border: 1px solid #991b1b;
+            color: #fca5a5;
+            padding: 14px;
+            border-radius: 8px;
+            font-size: 13px;
+            margin-bottom: 20px;
+            text-align: left;
+        }
+        .security-badge {
+            margin-top: 24px;
+            font-size: 11px;
+            color: #6b7280;
+            border-top: 1px solid #1f2937;
+            padding-top: 16px;
+        }
+    </style>
+</head>
+<body>
+
+<div class="card" id="card-container">
+    <div id="loading-state">
+        <div class="spinner"></div>
+        <h1>Conectando con tu entorno local</h1>
+        <p>TikTok ha autorizado el acceso. Transfiriendo la sesión a tu panel de AdelaSocial IA V2 en esta PC...</p>
+        <a id="manual-btn" href="#" class="btn" style="display: none;">Completar manualmente en esta PC</a>
+    </div>
+
+    <div id="error-state" style="display: none;">
+        <div class="icon">⚠️</div>
+        <h1 id="error-title">Autorización no completada</h1>
+        <div class="error-box" id="error-desc"></div>
+        <a href="http://127.0.0.1:8089/connections" class="btn">Volver al panel local</a>
+    </div>
+
+    <div class="security-badge">
+        🔒 Canal seguro de reenvío local · Sin almacenamiento de credenciales
+    </div>
+</div>
+
+<script>
+(function() {
+    // 1. Extraer parámetros enviados por TikTok
+    const search = window.location.search;
+    const params = new URLSearchParams(search);
+    const code = params.get('code');
+    const state = params.get('state');
+    const error = params.get('error') || params.get('error_description');
+
+    // 2. Seguridad: Limpiar de inmediato el historial y la barra del navegador
+    //    Evita que el código temporal permanezca visible o en el botón "Atrás"
+    if (window.history && window.history.replaceState) {
+        window.history.replaceState({}, document.title, window.location.pathname);
+    }
+
+    const localEndpoint = "http://127.0.0.1:8089/oauth/tiktok/callback";
+
+    // 3. Caso: Error devuelto por TikTok (ej. el usuario canceló en TikTok)
+    if (error) {
+        document.getElementById('loading-state').style.display = 'none';
+        document.getElementById('error-state').style.display = 'block';
+        document.getElementById('error-desc').textContent = "TikTok devolvió el siguiente aviso: " + error;
+        return;
+    }
+
+    // 4. Caso: Autorización exitosa con código y estado
+    if (code && state) {
+        // Validar caracteres seguros para prevenir inyecciones
+        const safeCode = encodeURIComponent(code);
+        const safeState = encodeURIComponent(state);
+        const targetUrl = localEndpoint + "?code=" + safeCode + "&state=" + safeState;
+
+        // Mostrar botón de respaldo por si el navegador bloquea la navegación automática
+        const manualBtn = document.getElementById('manual-btn');
+        manualBtn.href = targetUrl;
+        setTimeout(function() { manualBtn.style.display = 'inline-block'; }, 1500);
+
+        // Salto inmediato al entorno local reemplazando la pestaña
+        window.location.replace(targetUrl);
+    } else {
+        // Caso: Se abrió callback.html sin parámetros
+        document.getElementById('loading-state').style.display = 'none';
+        document.getElementById('error-state').style.display = 'block';
+        document.getElementById('error-title').textContent = "Solicitud incompleta";
+        document.getElementById('error-desc').textContent = "No se recibieron parámetros de autorización válidos desde TikTok.";
+    }
+})();
+</script>
+
+</body>
+</html>

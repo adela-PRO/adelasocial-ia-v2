@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="referrer" content="no-referrer">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; media-src 'self' blob: http://127.0.0.1:8089 http://localhost:8089; connect-src 'self' http://127.0.0.1:8089 http://localhost:8089; form-action 'none'; base-uri 'none'">
+  <meta name="description" content="AdelaSocial IA V2: gestión y publicación de vídeos verticales en cuentas de TikTok autorizadas mediante Login Kit y Content Posting API.">
+  <title>AdelaSocial IA V2 — Publicación en TikTok</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="wrap">
+      <div class="brand">
+        <div class="logo" aria-hidden="true">A</div>
+        <div>
+          <h1>AdelaSocial IA V2</h1>
+          <p>Gestión de contenido para TikTok</p>
+        </div>
+      </div>
+      <div class="badges" aria-live="polite">
+        <span class="badge warn" id="badge-env">Entorno: Sandbox</span>
+        <span class="badge" id="badge-backend">Backend: comprobando…</span>
+        <span class="badge" id="badge-account">TikTok: —</span>
+      </div>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <section class="hero">
+      <h2>Prepara, revisa y envía tus vídeos verticales a TikTok</h2>
+      <p>Conecta tu cuenta de TikTok con Login Kit, elige un vídeo MP4 vertical, configura título y privacidad, y envíalo como borrador o publícalo directamente mediante la Content Posting API oficial. Las credenciales y los tokens solo se guardan en el servidor del operador, nunca en esta página.</p>
+    </section>
+
+    <div id="banner" class="banner hidden" role="status"></div>
+    <div id="backend-help" class="banner warn hidden">
+      No se detecta el servidor del operador en <span class="mono">http://127.0.0.1:8089</span>.
+      Las funciones de conexión y publicación necesitan ese servidor activo en este equipo.
+      Puedes seguir revisando un archivo MP4 local para comprobar el formato.
+    </div>
+
+    <div class="grid">
+      <!-- 1. Cuenta -->
+      <section class="card span-5" aria-labelledby="h-account">
+        <h3 id="h-account"><span class="step">1</span> Cuenta de TikTok</h3>
+        <p class="sub">Autorización OAuth 2.0 con TikTok Login Kit.</p>
+
+        <label for="account-select">Cuenta de destino</label>
+        <select id="account-select" disabled>
+          <option value="TIKTOK_FR">TIKTOK_FR</option>
+          <option value="TIKTOK_US">TIKTOK_US</option>
+        </select>
+
+        <dl class="kv">
+          <dt>Estado</dt><dd id="acc-status">—</dd>
+          <dt>Usuario</dt><dd id="acc-user">—</dd>
+          <dt>Permisos</dt><dd><div class="chips" id="acc-scopes"><span class="chip">—</span></div></dd>
+          <dt>Token</dt><dd id="acc-token">—</dd>
+          <dt>App TikTok</dt><dd id="acc-app">—</dd>
+        </dl>
+
+        <div class="btns">
+          <button class="btn-tiktok" id="btn-connect" disabled>Continuar con TikTok</button>
+          <button class="btn-danger" id="btn-disconnect" disabled>Desconectar cuenta</button>
+        </div>
+        <p class="reasons hidden" id="connect-reason"></p>
+      </section>
+
+      <!-- 2. Vídeo -->
+      <section class="card span-7" aria-labelledby="h-video">
+        <h3 id="h-video"><span class="step">2</span> Vídeo</h3>
+        <p class="sub">Formato recomendado: MP4 vertical 9:16 (1080×1920), máximo 50 MB en esta consola.</p>
+
+        <div class="tabs" role="tablist">
+          <button class="tab" role="tab" id="tab-library" aria-selected="true" aria-controls="panel-library">Biblioteca de la fábrica</button>
+          <button class="tab" role="tab" id="tab-local" aria-selected="false" aria-controls="panel-local">Revisar archivo local</button>
+        </div>
+
+        <div id="panel-library" role="tabpanel" aria-labelledby="tab-library">
+          <div class="library" id="library"><p class="empty">Cargando biblioteca…</p></div>
+        </div>
+
+        <div id="panel-local" role="tabpanel" aria-labelledby="tab-local" class="hidden">
+          <div class="drop" id="drop">
+            Arrastra un MP4 aquí o <label for="file-input" style="display:inline;color:var(--accent-2);cursor:pointer;margin:0">elige un archivo</label>.
+            <input type="file" id="file-input" accept="video/mp4" class="hidden">
+            <br><small>Solo inspección en el navegador: el archivo no se sube. Para enviarlo a TikTok, debe estar en la biblioteca de la fábrica (función de subida desde el navegador pendiente).</small>
+          </div>
+        </div>
+
+        <div class="preview hidden" id="preview">
+          <video id="preview-video" muted playsinline controls preload="metadata"></video>
+          <div>
+            <div class="mono" id="preview-name"></div>
+            <ul class="checks" id="preview-checks"></ul>
+          </div>
+        </div>
+      </section>
+
+      <!-- 3. Publicación -->
+      <section class="card span-7" aria-labelledby="h-publish">
+        <h3 id="h-publish"><span class="step">3</span> Publicación</h3>
+        <p class="sub">Los envíos se realizan desde el servidor del operador con la Content Posting API.</p>
+
+        <label for="title">Título / descripción (incluye hashtags)</label>
+        <textarea id="title" maxlength="300" placeholder="Describe tu vídeo… #curiosidades"></textarea>
+        <div class="counter" id="title-counter">0 / 150</div>
+
+        <label for="privacy">¿Quién puede ver este vídeo?</label>
+        <select id="privacy">
+          <option value="SELF_ONLY" selected>Solo yo (privado)</option>
+          <option value="MUTUAL_FOLLOW_FRIENDS">Amigos</option>
+          <option value="FOLLOWER_OF_CREATOR">Seguidores</option>
+          <option value="PUBLIC_TO_EVERYONE">Todos (público)</option>
+        </select>
+        <div class="counter" id="privacy-note"></div>
+
+        <fieldset>
+          <legend>Interacciones</legend>
+          <label class="check"><input type="checkbox" id="allow-comment" checked> Permitir comentarios</label>
+          <label class="check"><input type="checkbox" id="allow-duet" checked> Permitir dúos</label>
+          <label class="check"><input type="checkbox" id="allow-stitch" checked> Permitir pegar (Stitch)</label>
+        </fieldset>
+
+        <fieldset>
+          <legend>Divulgación de contenido comercial</legend>
+          <label class="check"><input type="checkbox" id="disclose"> Este vídeo promociona una marca, producto o servicio</label>
+          <div id="disclose-opts" class="hidden">
+            <label class="check"><input type="checkbox" id="brand-organic"> <span>Tu marca<small>Promocionas tu propio negocio. Se etiquetará como «Contenido promocional».</small></span></label>
+            <label class="check"><input type="checkbox" id="brand-content"> <span>Contenido de marca<small>Colaboración pagada con un tercero. Se etiquetará como «Colaboración pagada».</small></span></label>
+          </div>
+        </fieldset>
+
+        <label class="check"><input type="checkbox" id="consent"> <span>Confirmo que tengo derechos sobre este contenido y acepto la <a href="https://www.tiktok.com/legal/page/global/music-usage-confirmation/en" target="_blank" rel="noopener noreferrer">Confirmación de uso de música</a> de TikTok.</span></label>
+
+        <div class="btns">
+          <button id="btn-draft" disabled>Subir como borrador</button>
+          <button class="btn-primary" id="btn-publish" disabled>Publicar directamente</button>
+        </div>
+        <ul class="reasons" id="publish-reasons"></ul>
+      </section>
+
+      <!-- 4. Resultados -->
+      <section class="card span-5" aria-labelledby="h-results">
+        <h3 id="h-results"><span class="step">4</span> Resultado del envío</h3>
+        <p class="sub">Estado devuelto por TikTok para el último envío.</p>
+        <dl class="kv">
+          <dt>Modo</dt><dd id="res-mode">—</dd>
+          <dt>publish_id</dt><dd class="mono" id="res-id">—</dd>
+          <dt>Estado</dt><dd id="res-status">Sin envíos en esta sesión</dd>
+          <dt>Detalle</dt><dd id="res-detail">—</dd>
+        </dl>
+        <div class="progress" aria-hidden="true"><div id="res-progress"></div></div>
+        <div class="btns"><button id="btn-poll" disabled>Consultar estado</button></div>
+      </section>
+
+      <!-- Historial -->
+      <section class="card span-8" aria-labelledby="h-history">
+        <h3 id="h-history">Historial de envíos (este navegador)</h3>
+        <p class="sub">Se guarda solo en este navegador. No contiene tokens ni datos de acceso.</p>
+        <div style="overflow:auto">
+          <table>
+            <thead><tr><th>Fecha</th><th>Cuenta</th><th>Modo</th><th>publish_id</th><th>Estado</th></tr></thead>
+            <tbody id="history"></tbody>
+          </table>
+        </div>
+        <p class="empty" id="history-empty">Todavía no hay envíos.</p>
+        <div class="btns"><button id="btn-clear-history">Borrar historial local</button></div>
+      </section>
+
+      <!-- Pendiente -->
+      <section class="card span-4" aria-labelledby="h-pending">
+        <h3 id="h-pending">Funciones no disponibles todavía</h3>
+        <p class="sub">Indicadas por el servidor; esta página no simula resultados.</p>
+        <ul class="pending" id="pending"><li>Comprobando…</li></ul>
+      </section>
+    </div>
+  </main>
+
+  <footer>
+    <div class="wrap">
+      <nav>
+        <a href="terminos.html">Términos de servicio</a>
+        <a href="privacidad.html">Política de privacidad</a>
+      </nav>
+      <span>AdelaSocial IA V2 · No afiliado ni patrocinado por TikTok.</span>
+    </div>
+  </footer>
+
+  <script src="app.js"></script>
+</body>
+</html>
